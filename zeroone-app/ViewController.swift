@@ -9,9 +9,11 @@ import UIKit
 import Starscream
 import AVFoundation
 
+
 class ViewController: UIViewController, WebSocketDelegate {
 
-    
+    @IBOutlet weak var terminalFeed: UITextView!
+    @IBOutlet weak var terminalButton: UIImageView!
     @IBOutlet weak var reconnectIcon: UIImageView!
     @IBOutlet weak var circle: UIImageView!
     @IBOutlet weak var settingsGear: UIImageView!
@@ -23,17 +25,20 @@ class ViewController: UIViewController, WebSocketDelegate {
     var address: String?
     var isConnected = false
     var recordingPermission = false
+    var terminal = false
     var socket: WebSocket?
 
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        terminalFeed.layer.cornerRadius = 15
         infoText.text = "Hold to start once connected."
         // Create a gesture recognizer that tracks when the "button" is held
         let pressGesture = UILongPressGestureRecognizer(target: self, action: #selector(buttonPress(_:)))
         pressGesture.minimumPressDuration = 0.01
         circle.addGestureRecognizer(pressGesture)
         circle.isUserInteractionEnabled = true
+        circle.translatesAutoresizingMaskIntoConstraints = false
         
         // Create a geature recognizer for the settings button
         let tapGesture = UITapGestureRecognizer(target: self, action: #selector(settingsGear(_:)))
@@ -45,7 +50,17 @@ class ViewController: UIViewController, WebSocketDelegate {
         reconnectIcon.addGestureRecognizer(reconnectGesture)
         reconnectIcon.isUserInteractionEnabled = true
         
+        
+        let terminal = UITapGestureRecognizer(target: self, action: #selector(terminalIcon(_:)))
+        terminalButton.addGestureRecognizer(terminal)
+        terminalButton.isUserInteractionEnabled = true
+        
+        
     }
+    
+
+    
+    
     
     
     func checkRecordingPerms() {
@@ -81,6 +96,13 @@ class ViewController: UIViewController, WebSocketDelegate {
         checkRecordingPerms()
     }
     
+    func receieved(data: String) {
+        infoText.text = data
+    }
+    
+
+    
+    
     
     func setAddress() {
         let alert = UIAlertController(title: "Set the Address", message: "Input the address of the WebSocket (found in the terminal running 01 software)", preferredStyle: .alert)
@@ -107,9 +129,39 @@ class ViewController: UIViewController, WebSocketDelegate {
         self.establishConnection()
     }
     
+    @objc func terminalIcon(_ sender: UIGestureRecognizer) {
+        if (terminal) {
+            UIView.animate(withDuration: 0.3) {
+                self.terminalFeed.text = ""
+                self.terminalFeed.alpha = 0
+                let moveT = CGAffineTransform(translationX: 0, y: -190)
+                self.appendTranslation(transform: moveT)
+                self.terminalButton.image = UIImage(systemName: "apple.terminal")
+            } completion: { done in
+                self.terminal = false
+            }
+        } else {
+            UIView.animate(withDuration: 0.3) {
+                self.terminalFeed.alpha = 1
+                let moveT = CGAffineTransform(translationX: 0, y: 190)
+                self.appendTranslation(transform: moveT)
+                self.terminalButton.image = UIImage(systemName: "apple.terminal.fill")
+            } completion: { done in
+                self.terminal = true
+            }
+
+        }
+    }
+    
     @objc func settingsGear(_ sender: UIGestureRecognizer) {
         infoText.text = ""
         setAddress()
+    }
+    
+    func appendTranslation(transform: CGAffineTransform) {
+        var currentTransform = self.circle.transform
+        currentTransform = currentTransform.concatenating(transform)
+        self.circle.transform = currentTransform
     }
     
     @objc func buttonPress(_ sender: UILongPressGestureRecognizer) {
@@ -125,7 +177,8 @@ class ViewController: UIViewController, WebSocketDelegate {
                 infoText.text = ""
                 UIView.animate(withDuration: 0.1) {
                     self.circle.tintColor = .green
-                    self.circle.transform = CGAffineTransform(scaleX: 0.7, y: 0.7)
+                    let newT = CGAffineTransform(scaleX: 0.7, y: 0.7)
+                    self.appendTranslation(transform: newT)
                     feedback.prepare()
                     feedback.impactOccurred()
                 }
@@ -156,7 +209,8 @@ class ViewController: UIViewController, WebSocketDelegate {
                     }
                     UIView.animate(withDuration: 0.1) {
                         self.circle.tintColor = .systemYellow
-                        self.circle.transform = CGAffineTransform(scaleX: 1, y: 1)
+                        let newT = CGAffineTransform(scaleX: 1.4, y: 1.4)
+                        self.appendTranslation(transform: newT)
                         feedback.prepare()
                         feedback.impactOccurred()
                     }
@@ -165,6 +219,7 @@ class ViewController: UIViewController, WebSocketDelegate {
             // stop recording and send the audio
         }
     }
+    
     
     
 
@@ -190,6 +245,11 @@ class ViewController: UIViewController, WebSocketDelegate {
                 isConnected = false
             reconnectIcon.tintColor = .red
             case .text(let string):
+            if (terminal) {
+                terminalFeed.text = terminalFeed.text + "\n>> \(string)"
+                let range = NSMakeRange(terminalFeed.text.count - 1, 0)
+                terminalFeed.scrollRangeToVisible(range)
+            }
             if (string.contains("audio") && string.contains("bytes.raw") && string.contains("start")) {
                 infoText.text = "Receiving response..."
                 // it started collecting data!
