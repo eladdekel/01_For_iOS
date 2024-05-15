@@ -23,6 +23,8 @@ To install this, you'll need:
 - An Apple Developer Account
 - A Device to install it on
 
+OR if you don't want to build it yourself, you can download the latest available build straight to your device through TestFlight, accessible [here](https://testflight.apple.com/join/v8SyuzMT)
+
 ### 1. Download this repository.
 Seems simple enough, doesn't it?
 
